@@ -1,0 +1,59 @@
+﻿services:
+  rabbitmq:
+    image: rabbitmq:4.0.5
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    command: >
+      sh -c "rabbitmq-plugins enable rabbitmq_management &&
+             rabbitmq-server"
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  warehouseapp:
+    build:
+      context: ./warehouse-service
+    command: bash start-dev.sh
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+    volumes:
+      - ./warehouse-service:/warehouse:z
+    networks:
+      - ecommerce-net
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  storefrontapp:
+    build:
+      context: ./storefront-service
+    command: bash start-dev.sh
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "8081:8081"
+      - "5006:5005"
+    volumes:
+      - ./storefront-service:/storefront:z
+    networks:
+      - ecommerce-net
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+networks:
+  ecommerce-net:
+    name: ecommerce-net
+    driver: bridge
